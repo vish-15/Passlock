@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from 'react';
@@ -12,9 +11,18 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Copy, Save, Wand2, AlertTriangle } from 'lucide-react';
-import type { PasswordEntry, PasswordGeneratorFormValues } from '@/lib/types';
+import type { PasswordGeneratorFormValues } from '@/lib/types';
 
 const passwordGeneratorSchema = z.object({
   length: z.number().min(8, "Min length 8").max(128, "Max length 128"),
@@ -25,6 +33,12 @@ const passwordGeneratorSchema = z.object({
   excludeCharacters: z.string().max(50, "Too many excluded chars").optional(),
 });
 
+const savePasswordSchema = z.object({
+  site: z.string().min(1, "Site name is required"),
+  username: z.string().optional(),
+});
+type SavePasswordFormValues = z.infer<typeof savePasswordSchema>;
+
 interface PasswordGeneratorProps {
   onSavePassword: (passwordDetails: { site: string, username: string, password_encrypted: string }) => void;
 }
@@ -32,9 +46,10 @@ interface PasswordGeneratorProps {
 export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
   const [generatedPassword, setGeneratedPassword] = useState<GenerateStrongPasswordOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<PasswordGeneratorFormValues>({
+  const generatorForm = useForm<PasswordGeneratorFormValues>({
     resolver: zodResolver(passwordGeneratorSchema),
     defaultValues: {
       length: 16,
@@ -46,7 +61,15 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
     },
   });
 
-  async function onSubmit(values: PasswordGeneratorFormValues) {
+  const saveDialogForm = useForm<SavePasswordFormValues>({
+    resolver: zodResolver(savePasswordSchema),
+    defaultValues: {
+      site: "",
+      username: "",
+    },
+  });
+
+  async function onGenerateSubmit(values: PasswordGeneratorFormValues) {
     setIsLoading(true);
     setGeneratedPassword(null);
     try {
@@ -89,16 +112,26 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
     }
   };
   
-  const handleSave = () => {
+  const handleOpenSaveDialog = () => {
     if (generatedPassword?.password) {
-      // For simplicity, prompt for site/username. In a real app, this might be a more integrated form.
-      const site = prompt("Enter site/service name for this password:");
-      if (!site) return;
-      const username = prompt(`Enter username for ${site}:`);
-      if (username === null) return; // Allow empty username
+      saveDialogForm.reset({ site: "", username: "" }); // Reset form for new entry
+      setIsSaveDialogOpen(true);
+    }
+  };
 
-      onSavePassword({ site, username, password_encrypted: generatedPassword.password });
-      setGeneratedPassword(null); // Clear after saving
+  const handleSaveSubmit = (values: SavePasswordFormValues) => {
+    if (generatedPassword?.password) {
+      onSavePassword({
+        site: values.site,
+        username: values.username || "",
+        password_encrypted: generatedPassword.password,
+      });
+      setIsSaveDialogOpen(false);
+      setGeneratedPassword(null); // Clear generated password after saving
+      toast({
+        title: "Password Saved",
+        description: `Generated password for ${values.site} has been saved to the manager.`,
+      });
     }
   };
 
@@ -112,10 +145,10 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
         <CardDescription>Create secure passwords based on your criteria.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <Form {...generatorForm}>
+          <form onSubmit={generatorForm.handleSubmit(onGenerateSubmit)} className="space-y-6">
             <FormField
-              control={form.control}
+              control={generatorForm.control}
               name="length"
               render={({ field }) => (
                 <FormItem>
@@ -129,7 +162,7 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
             />
             <div className="grid grid-cols-2 gap-4">
               <FormField
-                control={form.control}
+                control={generatorForm.control}
                 name="includeUppercase"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
@@ -143,7 +176,7 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
                 )}
               />
               <FormField
-                control={form.control}
+                control={generatorForm.control}
                 name="includeLowercase"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
@@ -157,7 +190,7 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
                 )}
               />
               <FormField
-                control={form.control}
+                control={generatorForm.control}
                 name="includeNumbers"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
@@ -171,7 +204,7 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
                 )}
               />
               <FormField
-                control={form.control}
+                control={generatorForm.control}
                 name="includeSymbols"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
@@ -186,7 +219,7 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
               />
             </div>
             <FormField
-              control={form.control}
+              control={generatorForm.control}
               name="excludeCharacters"
               render={({ field }) => (
                 <FormItem>
@@ -221,7 +254,7 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
                 <Copy />
                 <span className="sr-only">Copy password</span>
               </Button>
-              <Button variant="outline" size="icon" onClick={handleSave}>
+              <Button variant="outline" size="icon" onClick={handleOpenSaveDialog}>
                 <Save />
                 <span className="sr-only">Save password</span>
               </Button>
@@ -234,6 +267,60 @@ export function PasswordGenerator({ onSavePassword }: PasswordGeneratorProps) {
           </div>
         </CardFooter>
       )}
+
+      <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Save Generated Password</DialogTitle>
+            <DialogDescription>
+              Enter the site and username for this generated password. The password field is pre-filled.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...saveDialogForm}>
+            <form onSubmit={saveDialogForm.handleSubmit(handleSaveSubmit)} className="space-y-4 py-4">
+              <FormField
+                control={saveDialogForm.control}
+                name="site"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site/Service Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Google, Facebook" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={saveDialogForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username/Email (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., user@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input type="text" readOnly value={generatedPassword?.password || ""} className="font-mono" />
+                </FormControl>
+                <FormDescription>This password was generated for you.</FormDescription>
+              </FormItem>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button type="submit">Save to Manager</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

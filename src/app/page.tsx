@@ -1,21 +1,21 @@
-
 "use client"
 
 import { ShieldCheck, LockKeyhole } from 'lucide-react';
 import { PasswordGenerator } from '@/components/password-generator';
 import { PasswordManager, addGeneratedPasswordToManager } from '@/components/password-manager';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { useToast } from '@/hooks/use-toast';
+// Removed useToast import as it's no longer used here for this specific function
 
 export default function HomePage() {
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed if no other toasts are used in this component
 
   const handleSaveGeneratedPassword = (passwordDetails: { site: string, username: string, password_encrypted: string }) => {
     addGeneratedPasswordToManager(passwordDetails);
-    toast({
-      title: "Password Saved",
-      description: `Generated password for ${passwordDetails.site} has been saved to the manager.`,
-    });
+    // Toast is now handled within PasswordGenerator after successful dialog submission
+    // toast({
+    //   title: "Password Saved",
+    //   description: `Generated password for ${passwordDetails.site} has been saved to the manager.`,
+    // });
   };
 
   return (
